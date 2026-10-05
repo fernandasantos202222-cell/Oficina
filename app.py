@@ -1,14 +1,18 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
+import streamlit as st
 import sqlite3
+import pandas as pd
+from datetime import datetime
+from io import BytesIO
 
+# -------------------------
 # BANCO DE DADOS
+# -------------------------
 
-conn = sqlite3.connect("oficina.db")
+conn = sqlite3.connect("oficina.db", check_same_thread=False)
 cursor = conn.cursor()
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS clientes(
+CREATE TABLE IF NOT EXISTS clientes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nome TEXT,
     telefone TEXT
@@ -16,216 +20,248 @@ CREATE TABLE IF NOT EXISTS clientes(
 """)
 
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS servicos(
+CREATE TABLE IF NOT EXISTS servicos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cliente TEXT,
     descricao TEXT,
-    valor REAL
+    valor REAL,
+    data TEXT
 )
 """)
 
 conn.commit()
 
-# FUNÇÕES
+# -------------------------
+# CONFIG
+# -------------------------
 
-def cadastrar_cliente():
-    nome = entry_nome.get()
-    telefone = entry_telefone.get()
+st.set_page_config(
+    page_title="Oficina de Motos",
+    page_icon="🏍️",
+    layout="wide"
+)
 
-    if nome == "":
-        messagebox.showerror("Erro", "Digite o nome")
-        return
+st.title("🏍️ Sistema da Oficina")
 
-    cursor.execute(
-        "INSERT INTO clientes(nome, telefone) VALUES (?, ?)",
-        (nome, telefone)
+menu = st.sidebar.radio(
+    "Menu",
+    [
+        "Dashboard",
+        "Clientes",
+        "Serviços",
+        "Financeiro"
+    ]
+)
+
+# -------------------------
+# DASHBOARD
+# -------------------------
+
+if menu == "Dashboard":
+
+    total_clientes = cursor.execute(
+        "SELECT COUNT(*) FROM clientes"
+    ).fetchone()[0]
+
+    total_servicos = cursor.execute(
+        "SELECT COUNT(*) FROM servicos"
+    ).fetchone()[0]
+
+    faturamento = cursor.execute(
+        "SELECT SUM(valor) FROM servicos"
+    ).fetchone()[0]
+
+    faturamento = faturamento or 0
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Clientes", total_clientes)
+    c2.metric("Serviços", total_servicos)
+    c3.metric("Faturamento", f"R$ {faturamento:,.2f}")
+
+    st.divider()
+
+    df = pd.read_sql_query(
+        "SELECT * FROM servicos ORDER BY id DESC",
+        conn
     )
 
-    conn.commit()
+    st.subheader("Últimos Serviços")
 
-    entry_nome.delete(0, tk.END)
-    entry_telefone.delete(0, tk.END)
+    st.dataframe(df, use_container_width=True)
 
-    carregar_clientes()
-
-def carregar_clientes():
-
-    tabela_clientes.delete(*tabela_clientes.get_children())
-
-    cursor.execute("SELECT * FROM clientes")
-
-    for linha in cursor.fetchall():
-        tabela_clientes.insert("", "end", values=linha)
-
-def cadastrar_servico():
-
-    cliente = entry_cliente.get()
-    descricao = entry_descricao.get()
-    valor = entry_valor.get()
-
-    if cliente == "":
-        messagebox.showerror("Erro", "Digite o cliente")
-        return
-
-    cursor.execute("""
-    INSERT INTO servicos(cliente, descricao, valor)
-    VALUES (?, ?, ?)
-    """, (cliente, descricao, valor))
-
-    conn.commit()
-
-    entry_cliente.delete(0, tk.END)
-    entry_descricao.delete(0, tk.END)
-    entry_valor.delete(0, tk.END)
-
-    carregar_servicos()
-    atualizar_financeiro()
-
-def carregar_servicos():
-
-    tabela_servicos.delete(*tabela_servicos.get_children())
-
-    cursor.execute("SELECT * FROM servicos")
-
-    for linha in cursor.fetchall():
-        tabela_servicos.insert("", "end", values=linha)
-
-def atualizar_financeiro():
-
-    cursor.execute("SELECT SUM(valor) FROM servicos")
-
-    total = cursor.fetchone()[0]
-
-    if total is None:
-        total = 0
-
-    lbl_total.config(
-        text=f"Faturamento Total: R$ {total:.2f}"
-)
- 
-# JANELA
- 
-janela = tk.Tk()
-janela.title("Oficina de Motos")
-janela.geometry("1000x700")
- 
-titulo = tk.Label(
-janela,
-text="Sistema da Oficina",
-font=("Arial", 20, "bold")
-)
- 
-titulo.pack(pady=10)
- 
+# -------------------------
 # CLIENTES
- 
-frame_clientes = tk.LabelFrame(
-janela,
-text="Cadastro de Clientes",
-padx=10,
-pady=10
-)
- 
-frame_clientes.pack(fill="x", padx=10)
- 
-tk.Label(frame_clientes, text="Nome").grid(row=0, column=0)
- 
-entry_nome = tk.Entry(frame_clientes, width=30)
-entry_nome.grid(row=0, column=1)
- 
-tk.Label(frame_clientes, text="Telefone").grid(row=1, column=0)
- 
-entry_telefone = tk.Entry(frame_clientes, width=30)
-entry_telefone.grid(row=1, column=1)
- 
-btn_cliente = tk.Button(
-frame_clientes,
-text="Cadastrar Cliente",
-command=cadastrar_cliente
-)
- 
-btn_cliente.grid(row=2, column=1, pady=10)
- 
-# TABELA CLIENTES
- 
-tabela_clientes = ttk.Treeview(
-janela,
-columns=("id", "nome", "telefone"),
-show="headings",
-height=8
-)
- 
-tabela_clientes.heading("id", text="ID")
-tabela_clientes.heading("nome", text="Nome")
-tabela_clientes.heading("telefone", text="Telefone")
- 
-tabela_clientes.pack(fill="x", padx=10, pady=10)
- 
+# -------------------------
+
+elif menu == "Clientes":
+
+    st.subheader("Cadastro de Clientes")
+
+    with st.form("cliente"):
+
+        nome = st.text_input("Nome")
+        telefone = st.text_input("Telefone")
+
+        salvar = st.form_submit_button("Cadastrar")
+
+        if salvar:
+
+            cursor.execute(
+                """
+                INSERT INTO clientes(nome, telefone)
+                VALUES (?, ?)
+                """,
+                (nome, telefone)
+            )
+
+            conn.commit()
+
+            st.success("Cliente cadastrado!")
+
+    st.divider()
+
+    clientes = pd.read_sql_query(
+        "SELECT * FROM clientes",
+        conn
+    )
+
+    st.dataframe(clientes, use_container_width=True)
+
+# -------------------------
 # SERVIÇOS
- 
-frame_servicos = tk.LabelFrame(
-janela,
-text="Registrar Serviço",
-padx=10,
-pady=10
-)
- 
-frame_servicos.pack(fill="x", padx=10)
- 
-tk.Label(frame_servicos, text="Cliente").grid(row=0, column=0)
- 
-entry_cliente = tk.Entry(frame_servicos, width=30)
-entry_cliente.grid(row=0, column=1)
- 
-tk.Label(frame_servicos, text="Descrição").grid(row=1, column=0)
- 
-entry_descricao = tk.Entry(frame_servicos, width=40)
-entry_descricao.grid(row=1, column=1)
- 
-tk.Label(frame_servicos, text="Valor").grid(row=2, column=0)
- 
-entry_valor = tk.Entry(frame_servicos, width=20)
-entry_valor.grid(row=2, column=1)
- 
-btn_servico = tk.Button(
-frame_servicos,
-text="Registrar Serviço",
-command=cadastrar_servico
-)
- 
-btn_servico.grid(row=3, column=1, pady=10)
- 
-# TABELA SERVIÇOS
- 
-tabela_servicos = ttk.Treeview(
-janela,
-columns=("id", "cliente", "descricao", "valor"),
-show="headings",
-height=10
-)
- 
-tabela_servicos.heading("id", text="ID")
-tabela_servicos.heading("cliente", text="Cliente")
-tabela_servicos.heading("descricao", text="Serviço")
-tabela_servicos.heading("valor", text="Valor")
- 
-tabela_servicos.pack(fill="x", padx=10, pady=10)
- 
+# -------------------------
+
+elif menu == "Serviços":
+
+    st.subheader("Registrar Serviço")
+
+    clientes = pd.read_sql_query(
+        "SELECT nome FROM clientes",
+        conn
+    )
+
+    lista_clientes = clientes["nome"].tolist()
+
+    if len(lista_clientes) == 0:
+        st.warning("Cadastre um cliente primeiro.")
+    else:
+
+        with st.form("servico"):
+
+            cliente = st.selectbox(
+                "Cliente",
+                lista_clientes
+            )
+
+            descricao = st.text_area(
+                "Descrição do Serviço"
+            )
+
+            valor = st.number_input(
+                "Valor",
+                min_value=0.0
+            )
+
+            salvar = st.form_submit_button(
+                "Registrar Serviço"
+            )
+
+            if salvar:
+
+                cursor.execute("""
+                INSERT INTO servicos(
+                    cliente,
+                    descricao,
+                    valor,
+                    data
+                )
+                VALUES(?,?,?,?)
+                """, (
+                    cliente,
+                    descricao,
+                    valor,
+                    datetime.now().strftime("%d/%m/%Y")
+                ))
+
+                conn.commit()
+
+                st.success("Serviço registrado!")
+
+        st.divider()
+
+        servicos = pd.read_sql_query("""
+        SELECT *
+        FROM servicos
+        ORDER BY id DESC
+        """, conn)
+
+        st.dataframe(
+            servicos,
+            use_container_width=True
+        )
+
+# -------------------------
 # FINANCEIRO
- 
-lbl_total = tk.Label(
-janela,
-text="Faturamento Total: R$ 0,00",
-font=("Arial", 16, "bold"),
-fg="green"
-)
- 
-lbl_total.pack(pady=20)
- 
-# CARREGAR DADOS
- 
-carregar_clientes()
-carregar_servicos()
-atualizar_financeiro()
- 
-janela.mainloop()
+# -------------------------
+
+elif menu == "Financeiro":
+
+    st.subheader("Resumo Financeiro")
+
+    df = pd.read_sql_query(
+        "SELECT * FROM servicos",
+        conn
+    )
+
+    if len(df) > 0:
+
+        total = df["valor"].sum()
+
+        ticket = df["valor"].mean()
+
+        quantidade = len(df)
+
+        c1, c2, c3 = st.columns(3)
+
+        c1.metric(
+            "Faturamento Total",
+            f"R$ {total:,.2f}"
+        )
+
+        c2.metric(
+            "Quantidade de Serviços",
+            quantidade
+        )
+
+        c3.metric(
+            "Ticket Médio",
+            f"R$ {ticket:,.2f}"
+        )
+
+        arquivo = BytesIO()
+
+        with pd.ExcelWriter(
+            arquivo,
+            engine="openpyxl"
+        ) as writer:
+            df.to_excel(
+                writer,
+                index=False,
+                sheet_name="Serviços"
+            )
+
+        st.download_button(
+            "📥 Baixar Planilha Excel",
+            arquivo.getvalue(),
+            file_name="relatorio_oficina.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        st.dataframe(
+            df,
+            use_container_width=True
+        )
+
+    else:
+        st.info("Nenhum serviço cadastrado.")
