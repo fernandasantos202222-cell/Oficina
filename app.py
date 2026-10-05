@@ -100,7 +100,7 @@ def atualizar_financeiro():
         total = 0
 
     lbl_total.config(
-        text=f""Faturamento Total: R$ {total:.2f}"
+        text=f"Faturamento Total: R$ {total:.2f}"
 )
  
 # JANELA
