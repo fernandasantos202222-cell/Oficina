@@ -100,4 +100,132 @@ def atualizar_financeiro():
         total = 0
 
     lbl_total.config(
-        text=f"
+        text=f""Faturamento Total: R$ {total:.2f}"
+)
+ 
+# JANELA
+ 
+janela = tk.Tk()
+janela.title("Oficina de Motos")
+janela.geometry("1000x700")
+ 
+titulo = tk.Label(
+janela,
+text="Sistema da Oficina",
+font=("Arial", 20, "bold")
+)
+ 
+titulo.pack(pady=10)
+ 
+# CLIENTES
+ 
+frame_clientes = tk.LabelFrame(
+janela,
+text="Cadastro de Clientes",
+padx=10,
+pady=10
+)
+ 
+frame_clientes.pack(fill="x", padx=10)
+ 
+tk.Label(frame_clientes, text="Nome").grid(row=0, column=0)
+ 
+entry_nome = tk.Entry(frame_clientes, width=30)
+entry_nome.grid(row=0, column=1)
+ 
+tk.Label(frame_clientes, text="Telefone").grid(row=1, column=0)
+ 
+entry_telefone = tk.Entry(frame_clientes, width=30)
+entry_telefone.grid(row=1, column=1)
+ 
+btn_cliente = tk.Button(
+frame_clientes,
+text="Cadastrar Cliente",
+command=cadastrar_cliente
+)
+ 
+btn_cliente.grid(row=2, column=1, pady=10)
+ 
+# TABELA CLIENTES
+ 
+tabela_clientes = ttk.Treeview(
+janela,
+columns=("id", "nome", "telefone"),
+show="headings",
+height=8
+)
+ 
+tabela_clientes.heading("id", text="ID")
+tabela_clientes.heading("nome", text="Nome")
+tabela_clientes.heading("telefone", text="Telefone")
+ 
+tabela_clientes.pack(fill="x", padx=10, pady=10)
+ 
+# SERVIÇOS
+ 
+frame_servicos = tk.LabelFrame(
+janela,
+text="Registrar Serviço",
+padx=10,
+pady=10
+)
+ 
+frame_servicos.pack(fill="x", padx=10)
+ 
+tk.Label(frame_servicos, text="Cliente").grid(row=0, column=0)
+ 
+entry_cliente = tk.Entry(frame_servicos, width=30)
+entry_cliente.grid(row=0, column=1)
+ 
+tk.Label(frame_servicos, text="Descrição").grid(row=1, column=0)
+ 
+entry_descricao = tk.Entry(frame_servicos, width=40)
+entry_descricao.grid(row=1, column=1)
+ 
+tk.Label(frame_servicos, text="Valor").grid(row=2, column=0)
+ 
+entry_valor = tk.Entry(frame_servicos, width=20)
+entry_valor.grid(row=2, column=1)
+ 
+btn_servico = tk.Button(
+frame_servicos,
+text="Registrar Serviço",
+command=cadastrar_servico
+)
+ 
+btn_servico.grid(row=3, column=1, pady=10)
+ 
+# TABELA SERVIÇOS
+ 
+tabela_servicos = ttk.Treeview(
+janela,
+columns=("id", "cliente", "descricao", "valor"),
+show="headings",
+height=10
+)
+ 
+tabela_servicos.heading("id", text="ID")
+tabela_servicos.heading("cliente", text="Cliente")
+tabela_servicos.heading("descricao", text="Serviço")
+tabela_servicos.heading("valor", text="Valor")
+ 
+tabela_servicos.pack(fill="x", padx=10, pady=10)
+ 
+# FINANCEIRO
+ 
+lbl_total = tk.Label(
+janela,
+text="Faturamento Total: R$ 0,00",
+font=("Arial", 16, "bold"),
+fg="green"
+)
+ 
+lbl_total.pack(pady=20)
+ 
+# CARREGAR DADOS
+ 
+carregar_clientes()
+carregar_servicos()
+atualizar_financeiro()
+ 
+janela.mainloop()
